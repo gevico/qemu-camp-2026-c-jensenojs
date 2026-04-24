@@ -7,6 +7,7 @@
 # =============================================
 
 PWD := $(shell pwd)
+MAKEFLAGS += --no-print-directory
 
 # 所有子模块目录（静态库：生成 .a）
 SUBDIRS := \
@@ -20,17 +21,19 @@ all: mybash
 
 # 通用规则：构建每个子模块（静态库）
 $(SUBDIRS):
-    # TODO: 在这里添加你的代码
-    # I AM NOT DONE
+	@$(MAKE) -B -C src/$@ OBJDIR=$(PWD)/obj/$@
 
 # 构建 mybash（可执行文件，依赖上面的库）
 mybash: $(SUBDIRS)
-	# TODO: 在这里添加你的代码
-    # I AM NOT DONE
+	@$(MAKE) -B -C src/mybash OBJDIR=$(PWD)/obj/mybash BINDIR=$(PWD)/bin LINKLIBS="-L$(PWD)/obj/myfile -L$(PWD)/obj/mysed -L$(PWD)/obj/mytrans -L$(PWD)/obj/mywc"
 
 # 清理所有生成的文件
 clean:
-    # TODO: 在这里添加你的代码
-    # I AM NOT DONE
+	@$(MAKE) -C src/mybash clean OBJDIR=$(PWD)/obj/mybash BINDIR=$(PWD)/bin
+	@$(MAKE) -C src/myfile clean OBJDIR=$(PWD)/obj/myfile
+	@$(MAKE) -C src/mysed clean OBJDIR=$(PWD)/obj/mysed
+	@$(MAKE) -C src/mytrans clean OBJDIR=$(PWD)/obj/mytrans
+	@$(MAKE) -C src/mywc clean OBJDIR=$(PWD)/obj/mywc
+	rm -rf bin obj
 
 .PHONY: all $(SUBDIRS) mybash clean

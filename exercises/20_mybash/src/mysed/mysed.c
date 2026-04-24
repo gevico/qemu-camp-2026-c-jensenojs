@@ -13,8 +13,28 @@ int parse_replace_command(const char* cmd, char** old_str, char** new_str) {
     *old_str = NULL;
     *new_str = NULL;
     
-    // TODO: 在这里添加你的代码
-    // I AM NOT DONE
+    const char *p1 = strchr(cmd + 2, '/');
+    if (p1 == NULL) return -1;
+    const char *p2 = strchr(p1 + 1, '/');
+    if (p2 == NULL) return -1;
+
+    size_t old_len = (size_t)(p1 - (cmd + 2));
+    size_t new_len = (size_t)(p2 - (p1 + 1));
+
+    *old_str = malloc(old_len + 1);
+    *new_str = malloc(new_len + 1);
+    if (*old_str == NULL || *new_str == NULL) {
+        free(*old_str);
+        free(*new_str);
+        *old_str = NULL;
+        *new_str = NULL;
+        return -1;
+    }
+
+    memcpy(*old_str, cmd + 2, old_len);
+    (*old_str)[old_len] = '\0';
+    memcpy(*new_str, p1 + 1, new_len);
+    (*new_str)[new_len] = '\0';
 
     return 0;
 }
@@ -25,8 +45,17 @@ void replace_first_occurrence(char* str, const char* old, const char* new) {
         return;
     }
     
-    // TODO: 在这里添加你的代码
-    // I AM NOT DONE
+    char *pos = strstr(str, old);
+    if (pos == NULL) {
+        return;
+    }
+
+    size_t old_len = strlen(old);
+    size_t new_len = strlen(new);
+    size_t rest_len = strlen(pos + old_len);
+
+    memmove(pos + new_len, pos + old_len, rest_len + 1);
+    memcpy(pos, new, new_len);
 }
 
 int __cmd_mysed(const char* rules, const char* str) {

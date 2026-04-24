@@ -1,4 +1,6 @@
 #include "myfile.h"
+#include <stdio.h>
+#include <string.h>
 
 void print_elf_type(uint16_t e_type) {
     const char *type_str;
@@ -34,12 +36,24 @@ int __cmd_myfile(const char* filename) {
     int fd;
     Elf64_Ehdr ehdr;
 
-    strcpy(filepath, filename);
+    strncpy(filepath, filename, sizeof(filepath) - 1);
+    filepath[sizeof(filepath) - 1] = '\0';
     fflush(stdout);
     printf("filepath: %s\n", filepath);
 
-    // TODO: 在这里添加你的代码
-    // I AM NOT DONE
+    fd = open(filepath, O_RDONLY);
+    if (fd < 0) {
+      perror("open");
+      return 1;
+    }
+
+    lseek(fd, 0, SEEK_SET);
+    ssize_t n = read(fd, &ehdr, sizeof(ehdr));
+    if (n != sizeof(ehdr)) {
+      perror("read");
+      close(fd);
+      return 1;
+    }
 
     print_elf_type(ehdr.e_type);
     close(fd);
