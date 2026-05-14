@@ -16,29 +16,43 @@
 
 /*
  * 原始协议头（与网络字节流逐字节对应，不直接使用位域跨字节）
+ *
+ * 字节流示例：0x00 0x03 0x00 0x20 0x00
+ *          └─────┘ └────────┘ └─────┘
+ *          version   length    flags
+ *
+ * version_raw：网络序（大端）。x86 是小端，所以内存中的字节顺序是反的：
+ *   流中字节：0x00 0x03 → version_raw（小端 uint16_t）= 0x0300
+ *   be16_to_cpu 负责把 0x0300 转成 0x0003，这时低 8 位是 0x03，
+ *   高 4 位 = 主版本（0），低 4 位 = 次版本（3）。
  */
 typedef struct {
-    // TODO: 在这里添加你的代码
-    // I AM NOT DONE
-} proto_header_raw_t;
+    uint16_t version_raw;   // +0: 版本（2 字节，网络序）
+    uint16_t length_be;     // +2: 长度（2 字节，网络序）
+    uint8_t  flags_raw;     // +4: 标志（1 字节）
+} proto_header_raw_t;       // 总共 5 字节（#pragma pack(1) 保证紧凑）
 
 /*
  * 位域定义的逻辑视图（使用位域表达语义，不强行与字节流直接映射）
  * 注意：位域在不同平台的位序实现可能不同，故此处不作为内存映射，仅用于展示语义并由解析代码赋值。
  */
 typedef struct {
-    // TODO: 在这里添加你的代码
-    // I AM NOT DONE
+    unsigned int ver_minor : 4;   // 次版本（低 4 位）
+    unsigned int ver_major : 4;   // 主版本（高 4 位）
+    unsigned int length    : 16;  // 长度
+    unsigned int reserved  : 3;   // 保留位（未使用）
+    unsigned int flags     : 5;   // 功能标志（低 5 位）
 } proto_header_bits_t;
 
 #pragma pack(pop)
 
 /*
- * 将网络序（大端）的 16 位数转换为主机序
+ * 将网络序（大端）的 16 位数转换为主机序（x86 小端）。
+ * 大端 0x00 0x03 在内存中是 AABB，小端读作 0x0300。
+ * 互换高低字节：0x0300 → 0x0003，恢复为正确的数值。
  */
 static uint16_t be16_to_cpu(uint16_t be) {
-    // TODO: 在这里添加你的代码
-    // I AM NOT DONE
+    return ((be >> 8) & 0x00FF) | ((be << 8) & 0xFF00);
 }
 
 int main(void) {
@@ -49,9 +63,10 @@ int main(void) {
     proto_header_raw_t raw = {0};
     memcpy(&raw, stream, sizeof(raw));
 
-    /* 解析版本号：题目定义“4 位主版本 + 4 位次版本”，位于版本字段的低 8 位 */
-    // TODO: 在这里添加你的代码
-    // I AM NOT DONE
+    /* 解析版本号：题目定义"4 位主版本 + 4 位次版本"，位于版本字段的低 8 位 */
+    uint16_t version = be16_to_cpu(raw.version_raw);
+    unsigned ver_major = (version >> 4) & 0x0F;
+    unsigned ver_minor = version & 0x0F;
 
     /* 解析长度：网络序 16 位 */
     uint16_t length = be16_to_cpu(raw.length_be);
@@ -60,8 +75,12 @@ int main(void) {
     unsigned flags = (unsigned)(raw.flags_raw & 0x1Fu);
 
     /* 使用位域结构体表达（非内存映射，仅用于说明位域解析规则） */
-    // TODO: 在这里添加你的代码
-    // I AM NOT DONE
+    proto_header_bits_t view;
+    view.ver_major = ver_major;
+    view.ver_minor = ver_minor;
+    view.length    = length;
+    view.reserved  = 0;
+    view.flags     = flags;
 
     /* 期望输出：version:0.3, length:32, flags:0x00 */
     printf("version:%u.%u, length:%u, flags:0x%02X\n", view.ver_major, view.ver_minor, view.length, view.flags & 0xFFu);
