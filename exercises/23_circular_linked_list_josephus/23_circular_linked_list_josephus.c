@@ -21,15 +21,31 @@ static void josephus_problem(int n, int k, int m) {
     Node* prev = head;
     while (prev->next != head) prev = prev->next;
 
-    // 起始位置移动到第 k 个
+    // 起始位置移动到第 k 个（1−based）
     for (int i = 1; i < k; ++i) {
-        // TODO: 在这里添加你的代码
-        // I AM NOT DONE
+        prev = current;
+        current = current->next;
     }
 
-    // TODO: 在这里添加你的代码
-    // I AM NOT DONE
-    
+    // 循环淘汰：每数到 m 就移除当前节点，直到只剩一个
+    Node* tmp = NULL;
+    while (current->next != current) {
+        // 前移 m-1 步，使 current 指向要淘汰的节点
+        for (int i = 1; i < m; ++i) {
+            prev = current;
+            current = current->next;
+        }
+        // 淘汰 current
+        printf("%d ", current->id);
+        tmp = current;
+        current = current->next;
+        prev->next = current;
+        free(tmp);
+    }
+    // 输出最后一个幸存者
+    printf("%d ", current->id);
+    free(current);
+
     printf("\n");
 }
 
