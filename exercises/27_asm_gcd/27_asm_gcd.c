@@ -7,14 +7,34 @@ unsigned int gcd_asm(unsigned int a, unsigned int b) {
      * GCC 扩展内联汇编语法（非标准 C，GCC 专有扩展）：
      *
      *   __asm__ volatile ( "指令模板" : 输出操作数 : 输入操作数 : 破坏列表 );
+     *   __asm__ volatile(
+     *     "指令模板"              // ← 第 1 段：汇编指令（用 %0 %1 %2 做占位符）
+     *     : 输出操作数           // ← 第 2 段：输出列表（asm 结束后写回 C 变量）
+     *     : 输入操作数           // ← 第 3 段：输入列表（asm 开始前从 C 变量取值放寄存器）
+     *     : 破坏列表              // ← 第 4 段：告诉编译器你额外占了哪些寄存器
+     *   );
+     *
+     * 重点理解：%0、%1、%2 是编译期占位符，不是运行期入栈。
+      * 编译器在编译时，查当前空闲的寄存器有哪些，给每个操作数挑一个，
+      * 然后把模板里的 %0/%1/%2 替换成真实寄存器名（比如 %1 → %%eax）。
+      * 这就是"编译器分配寄存器"——发生在编译时，不涉及入栈。
+      *
+      * %0 %1 %2 是全局连续编号的——不分"输出段""输入段"。
+      * 先编所有输出（包括 +r 读写），再编所有输入。
+      * 本例的对应关系：
+      *   : "=r"(result)   → %0  （输出）
+      *   : "r"(a), "r"(b) → %1, %2（输入）
+      *
+      * 约束写法：
+     *   "r"(x)   只读：asm 开始前把 x 放进某个寄存器，不改
+     *   "=r"(x)  只写：asm 结束后把寄存器的值写回 x（等号=表示：之前的值丢弃）
+     *   "+r"(x)  读写：asm 开始前放入，结束后写回（+ 表示既读又写）
+     *   "a"      强制使用 eax（不用 "r" 让编译器选，而是你指名道姓）
      *
      * - volatile：禁止编译器认为"输出没被用"而删除 asm 块
-     * - %0, %1, %2：分别引用第 0/1/2 个操作数（按 输出→输入 顺序编号）
      * - %%eax：两个百分号表示字面寄存器名（单百分号被保留给操作数引用）
-     * - "r"(x)：把 x 放到任意通用寄存器
-     * - "=r"(x)：输出到任意通用寄存器（等号=表示写-only）
-     * - "a"：强制使用 eax 寄存器
-     * - 破坏列表：告诉编译器我们修改了哪些寄存器，让它保存恢复
+     * - 破坏列表：告诉编译器我们额外硬编码改写了哪些寄存器（比如 %%eax），
+     *   需要编译器在 asm 前后帮我们保存恢复
      *
      * 这里的汇编是 AT&T 语法（GCC 在 x86 上的默认风格）。
      * 和 Intel 语法的关键差异：
@@ -23,10 +43,14 @@ unsigned int gcd_asm(unsigned int a, unsigned int b) {
      *   寄存器前缀  %%eax          eax
      *   立即数前缀  $42            42
      * AT&T 的 "mov %1, %%eax" 等价于 Intel 的 "mov eax, %1"。
+     *
+     * 本文件用的是"硬编码寄存器"模式——用 %%eax、%%ebx 指名道姓。
+     * 好处是教学清晰，坏处是必须写破坏列表告诉编译器我们占了 eax/ebx/edx。
+     * 28 题的写法（用 %0/%1 让编译器分配）是更通用的做法。
      */
-    __asm__ volatile (
-        "mov %1, %%eax\n\t"     // %1 = a → eax
-        "mov %2, %%ebx\n\t"     // %2 = b → ebx
+    __asm__ volatile(
+        "mov %1, %%eax\n\t"  // %1 = a → eax
+        "mov %2, %%ebx\n\t"  // %2 = b → ebx
         "jmp .L_check\n\t"
 
         /*
@@ -71,18 +95,18 @@ unsigned int gcd_asm(unsigned int a, unsigned int b) {
          */
         ".L_loop:\n\t"
         "   xor %%edx, %%edx\n\t"
-        "   div %%ebx\n\t"          // eax = a/b, edx = a%b
-        "   mov %%ebx, %%eax\n\t"   // a = b（旧除数成为新被除数）
-        "   mov %%edx, %%ebx\n\t"   // b = remainder
+        "   div %%ebx\n\t"         // eax = a/b, edx = a%b
+        "   mov %%ebx, %%eax\n\t"  // a = b（旧除数成为新被除数）
+        "   mov %%edx, %%ebx\n\t"  // b = remainder
 
         ".L_check:\n\t"
         "   test %%ebx, %%ebx\n\t"  // b == 0？
         "   jne .L_loop\n\t"        // 非零继续
 
-        "mov %%eax, %0"             // eax → result
-        : "=r" (result)             // %0：输出到任意寄存器
-        : "r" (a), "r" (b)          // %1=a, %2=b，编译器选寄存器
-        : "eax", "ebx", "edx"       // 这三个寄存器的值被 asm 覆盖了
+        "mov %%eax, %0"        // eax → result
+        : "=r"(result)         // %0：输出到任意寄存器
+        : "r"(a), "r"(b)       // %1=a, %2=b，编译器选寄存器
+        : "eax", "ebx", "edx"  // 这三个寄存器的值被 asm 覆盖了
     );
 
     return result;
