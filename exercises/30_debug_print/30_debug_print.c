@@ -39,11 +39,12 @@
 
 #endif
 
-//! 注：确保 DEBUG_PRINT("x=%d", x) 位于第 48 行，否则测试会失败（测试硬编码了行号 48）
+//! 注：DEBUG_PRINT("x=%d", x) 位于第 48 行（__LINE__==48），与测试期望一致。
 
 // 测试代码
 void test() {
     int x = 42;
+
     DEBUG_PRINT("x=%d", x);
 }
 
