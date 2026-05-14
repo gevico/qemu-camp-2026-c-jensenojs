@@ -18,11 +18,31 @@ struct Test {
  * container_of 宏
  * 原理：结构体首地址 + 成员偏移量 = 成员地址
  *      → 结构体首地址 = 成员地址 - 成员偏移量
- * 类型约束：使用 typeof 对 ptr 的类型进行校验，减少误用风险
+ *
+ *         struct Test {
+ *             int  a;   // offset=0
+ *             char b;   // offset=4  （int 对齐后）
+ *         };
+ *         &t     t.b     &t.b - offsetof(struct Test, b) = &t
+ *          ↓      ↓
+ *         [ a ][ b ]     b 的地址减去 4 就回到了 t 的开头
+ *
+ * offsetof(type, member) 是 stddef.h 提供的宏，返回成员在结构体中的字节偏移。
+ * 它的典型实现是 ((size_t)&((type*)0)->member)——假装从地址 0 开始布局，
+ * 取成员的地址，这个地址值就是偏移量（因为基址是 0）。
+ *
+ * typeof 是 GCC 扩展，用于声明一个与 ptr 类型匹配的临时指针 __mptr。
+ * 如果 ptr 的类型不是 type→member 的类型，编译器会报 warning。
+ * 这是一个编译期类型检查——没有运行时开销。
+ *
+ * 整个宏被包在 ({...}) 中（GCC 语句表达式），
+ * 最后一行 (type*)... 的值作为整个表达式的返回值。
+ * 这也是 GCC 扩展，不在 C 标准里。
  */
-#define container_of(ptr, type, member)
-    // TODO: 在这里添加你的代码
-    // I AM NOT DONE
+#define container_of(ptr, type, member) ({                     \
+    const typeof(((type*)0)->member) *__mptr = (ptr);          \
+    (type*)((char*)__mptr - offsetof(type, member));           \
+})
 
 int main(void) {
     struct Test t = {.a = 42, .b = 'Z'};
